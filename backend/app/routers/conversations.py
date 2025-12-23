@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.core.database import AsyncSessionLocal
+from app.core.database import SessionLocal
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationOut,
@@ -10,7 +10,7 @@ from app.services import conversation_service
 router = APIRouter(prefix="/conversations")
 
 def get_db():
-    db = AsyncSessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:

@@ -1,9 +1,8 @@
 import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from app.core.database import engine, Base
 from app.models import *   # THIS LINE IS REQUIRED
-from app.routers import conversations
+from app.routers import conversations, users
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -16,6 +15,7 @@ app = FastAPI(
 )
 
 app.include_router(conversations.router)
+app.include_router(users.router)
 
 @app.get("/health")
 def health():
