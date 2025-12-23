@@ -14,10 +14,7 @@ DATABASE_URL = (
     f"{os.getenv('POSTGRES_DB')}"
 )
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -25,4 +22,10 @@ SessionLocal = sessionmaker(
     bind=engine,
 )
 
-Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

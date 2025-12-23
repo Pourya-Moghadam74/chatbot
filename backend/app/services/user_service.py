@@ -5,7 +5,7 @@ from app.crud import user
 from app.core.security import hash_password
 
 def create_user(db: Session, payload: UserCreate):
-    existing = user.get_by_email(db, payload.email)
+    existing = user.get_user_by_email(db, payload.email)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

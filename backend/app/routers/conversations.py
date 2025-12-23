@@ -1,20 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationOut,
 )
+from app.db.session import get_db
 from app.services import conversation_service
 
 router = APIRouter(prefix="/conversations")
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.post("",response_model=ConversationOut,)
 def create_conversation(

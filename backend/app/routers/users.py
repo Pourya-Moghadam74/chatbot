@@ -1,20 +1,13 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
-from app.schemas.user import UserCreate, UserOut
-from app.services import user_service
+from app.deps import get_current_user
+from app.models.user import User
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(prefix="/users", tags=["users"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-@router.post("", response_model=UserOut, status_code=201,)
-def register_user(
-    payload: UserCreate,
-    db: Session = Depends(get_db),):
-    return user_service.create_user(db, payload)
+@router.get("/me")
+def read_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "email": current_user.email
+    }
