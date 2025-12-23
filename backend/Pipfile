@@ -14,6 +14,7 @@ alembic = "*"
 pydantic-settings = "*"
 psycopg2 = "*"
 psycopg2-binary = "*"
+passlib = {extras = ["bcrypt"], version = "*"}
 
 [dev-packages]
 
