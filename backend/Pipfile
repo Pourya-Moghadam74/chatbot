@@ -10,6 +10,10 @@ requests = "*"
 python-dotenv = "*"
 sqlalchemy = "*"
 asyncpg = "*"
+alembic = "*"
+pydantic-settings = "*"
+psycopg2 = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
 

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, String, DateTime
 from sqlalchemy.sql import func
-from app.database import Base
+from app.core.database import Base
 
 class Conversation(Base):
     __tablename__ = "conversations"
