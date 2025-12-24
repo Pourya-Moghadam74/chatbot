@@ -4,6 +4,7 @@ from datetime import datetime
 class ConversationCreate(BaseModel):
     user_id: int | None = None
     title: str | None = None
+    session_id: str
 
 class ConversationOut(BaseModel):
     id: int

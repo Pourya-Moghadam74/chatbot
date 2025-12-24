@@ -12,11 +12,11 @@ sqlalchemy = "*"
 asyncpg = "*"
 alembic = "*"
 pydantic-settings = "*"
-psycopg2 = "*"
 psycopg2-binary = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
 pydantic = {extras = ["email"], version = "*"}
 python-jose = {extras = ["cryptography"], version = "*"}
+sse-starlette = "*"
 
 [dev-packages]
 
