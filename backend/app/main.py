@@ -1,7 +1,6 @@
 import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from app.models import *   # THIS LINE IS REQUIRED
 from app.routers import conversations, users, auth
 
 load_dotenv()
