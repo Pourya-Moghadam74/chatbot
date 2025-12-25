@@ -110,6 +110,10 @@ export default function HomePage() {
   const [convLoading, setConvLoading] = useState(false);
   const [convDeletingId, setConvDeletingId] = useState(null);
   const [ideas, setIdeas] = useState(promptIdeas);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [headerModalOpen, setHeaderModalOpen] = useState(false);
+  const [promptValue, setPromptValue] = useState('');
+  const [promptWarning, setPromptWarning] = useState('');
 
   const handleSignOut = () => {
     dispatch(logout());
@@ -130,6 +134,11 @@ export default function HomePage() {
       }
     };
     load();
+  }, [user]);
+
+  useEffect(() => {
+    // Clear prompt warning when auth state changes (e.g., sign in/out)
+    setPromptWarning('');
   }, [user]);
 
   const handleDelete = async (id, session_id, e) => {
@@ -155,6 +164,17 @@ export default function HomePage() {
     navigate(`/chat?session_id=${encodeURIComponent(sid)}&prompt=${encodeURIComponent(idea)}`);
   };
 
+  const handlePromptSend = () => {
+    const trimmed = promptValue.trim();
+    if (!trimmed) return;
+    if (!user) {
+      setPromptWarning('Please sign in or sign up to start chatting.');
+      return;
+    }
+    const sid = createSessionId();
+    navigate(`/chat?session_id=${encodeURIComponent(sid)}&prompt=${encodeURIComponent(trimmed)}`);
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0b1021] text-gray-100">
       <div className="pointer-events-none absolute inset-0">
@@ -164,8 +184,8 @@ export default function HomePage() {
       </div>
 
       <div className="relative mx-auto flex max-w-6xl flex-col gap-14 px-6 py-10 md:py-14">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <header className="flex flex-wrap items-center justify-between gap-4 lg:flex-nowrap">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-emerald-200">
               <svg viewBox="0 0 24 24" className="h-6 w-6">
                 <path
@@ -178,15 +198,46 @@ export default function HomePage() {
                 />
               </svg>
             </div>
+
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-gray-400">ChatGPT</p>
-              <p className="text-lg font-semibold text-white">Conversation Home</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-gray-400">GroqFlow</p>
+              <p className="text-lg font-semibold text-white">GroqFlow Home</p>
+            </div>
+
+            {/* RIGHTMOST BURGER BUTTON */}
+            <div className="ml-auto flex items-center gap-2 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setHeaderModalOpen(true)}
+                className="rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-100 transition hover:border-white/35"
+              >
+                Account & model
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-full border border-white/20 bg-white/5 p-2 text-gray-100 transition hover:border-white/35 lg:hidden"
+                aria-label="Open conversations"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                >
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                </svg>
+              </button>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+          
+          <div className="hidden items-center justify-end gap-3 lg:ml-auto lg:flex lg:flex-wrap">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-gray-200">
-              Model · Default
+              Model · Groq (Llama 3.1)
             </span>
 
             {user ? (
@@ -228,8 +279,77 @@ export default function HomePage() {
           </div>
         </header>
 
+        {headerModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm lg:hidden">
+            <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0f1427] p-5 shadow-2xl shadow-black/40">
+              <button
+                type="button"
+                onClick={() => setHeaderModalOpen(false)}
+                className="absolute right-3 top-3 rounded-full border border-white/20 bg-white/5 px-2 py-1 text-xs text-gray-200 transition hover:border-white/35"
+              >
+                Close
+              </button>
+              <div className="mb-3">
+                <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Quick access</p>
+                <h2 className="text-lg font-semibold text-white">Account & model</h2>
+              </div>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-gray-200">
+                  Model Aú Groq (Llama 3.1)
+                </span>
+                {user && (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
+                    {user.email}
+                  </span>
+                )}
+              </div>
+              {user ? (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeaderModalOpen(false);
+                      navigate('/chat');
+                    }}
+                    className="w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:scale-[1.01]"
+                  >
+                    New chat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeaderModalOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-white/35"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setHeaderModalOpen(false)}
+                    className="w-full rounded-full border border-white/20 bg-white/5 px-4 py-2 text-center text-sm font-semibold text-gray-100 transition hover:border-white/35"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setHeaderModalOpen(false)}
+                    className="w-full rounded-full bg-white px-4 py-2 text-center text-sm font-semibold text-black transition hover:scale-[1.01]"
+                  >
+                    Sign up
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-6 lg:flex-row">
-          <aside className="w-full lg:w-72 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur max-h-[75vh] overflow-y-auto">
+          <aside className="hidden w-full max-h-[75vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur lg:block lg:w-72">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Your conversations</p>
               {convLoading && <span className="text-xs text-gray-400">Loading…</span>}
@@ -276,17 +396,78 @@ export default function HomePage() {
             </div>
           </aside>
 
+          {sidebarOpen && (
+            <div className="fixed inset-0 z-40 flex lg:hidden">
+              <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+              <div className="relative z-50 flex h-full w-4/5 max-w-xs flex-col rounded-r-2xl border-r border-white/10 bg-[#0b1021] p-4 backdrop-blur">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-white">Your conversations</p>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    className="text-xs text-gray-300"
+                  >
+                    Close
+                  </button>
+                </div>
+                {convLoading && <span className="text-xs text-gray-400 mb-2">Loading…</span>}
+                {(!conversations || conversations.length === 0) && !convLoading && (
+                  <p className="text-sm text-gray-400">No conversations yet.</p>
+                )}
+                <div className="space-y-2 overflow-y-auto">
+                  {conversations.map((c) => (
+                    <div
+                      key={c.id}
+                      className="w-full text-left rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-gray-100 transition hover:border-white/25 hover:bg-white/[0.07]"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => {
+                            setSidebarOpen(false);
+                            navigate(`/chat/${c.id}?session_id=${encodeURIComponent(c.session_id || '')}`);
+                          }}
+                        >
+                          <p className="font-semibold text-white truncate">
+                            {c.title || 'Untitled conversation'}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Session {c.session_id?.slice(0, 8) || '—'}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              handleDelete(c.id, c.session_id, e);
+                            }}
+                            className="rounded-full border border-white/20 px-2 py-1 text-xs text-gray-200 transition hover:border-red-400 hover:text-red-300"
+                            disabled={convDeletingId === c.id}
+                          >
+                            {convDeletingId === c.id ? '…' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 flex flex-col gap-14">
             <section className="flex flex-col items-center gap-5 text-center">
               <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-300">
-                Inspired by the ChatGPT landing flow
+                Powered by Groq acceleration
               </div>
               <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                Ask anything. Explore ideas. Ship faster.
+                Meet GroqFlow! Fast answers, Clean chats.
               </h1>
               <p className="max-w-2xl text-lg text-gray-300">
-                Start a conversation or pick from suggestions to see what this assistant can do.
-                It is designed to feel like the ChatGPT home you already know.
+                Start a conversation or pick a suggestion to see what this assistant can do. GroqFlow runs on Groq-hosted Llama 3.1 for low-latency replies.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -381,10 +562,26 @@ export default function HomePage() {
                 <div className="group relative rounded-2xl border border-white/10 bg-[#0f1427] shadow-inner shadow-black/40 transition focus-within:border-emerald-400/40 focus-within:shadow-emerald-500/10">
                   <textarea
                     rows="3"
-                    placeholder="Message ChatGPT..."
+                    placeholder="Message GroqFlow..."
+                    value={promptValue}
+                    onChange={(e) => {
+                      setPromptValue(e.target.value);
+                      if (promptWarning) setPromptWarning('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handlePromptSend();
+                      }
+                    }}
                     className="w-full resize-none rounded-2xl bg-transparent px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
                   />
-                  <div className="pointer-events-none absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-emerald-500 text-black opacity-90 shadow-lg shadow-emerald-500/20">
+                  <button
+                    type="button"
+                    onClick={handlePromptSend}
+                    className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-emerald-500 text-black opacity-90 shadow-lg shadow-emerald-500/20 transition hover:opacity-100"
+                    aria-label="Send prompt"
+                  >
                     <svg viewBox="0 0 24 24" className="h-4 w-4">
                       <path
                         d="M5 12h14M12 5l7 7-7 7"
@@ -395,11 +592,15 @@ export default function HomePage() {
                         strokeLinejoin="round"
                       />
                     </svg>
-                  </div>
+                  </button>
                 </div>
-                <p className="mt-2 text-xs text-gray-400">
-                  Tip: give clear instructions or paste context to steer the conversation—just like ChatGPT.
-                </p>
+                {promptWarning ? (
+                  <p className="mt-2 text-xs text-amber-300">{promptWarning}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Tip: give clear instructions or paste context to steer the conversation—GroqFlow loves specifics.
+                  </p>
+                )}
               </div>
             </section>
           </div>
