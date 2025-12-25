@@ -66,3 +66,26 @@ def get_conversation(
         "created_at": convo.created_at,
         "messages": messages,
     }
+
+
+@router.delete("/{conversation_id}", status_code=204)
+def delete_conversation(
+    conversation_id: int,
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    convo = convo_crud.get_conversation(
+        db,
+        convo_id=conversation_id,
+        user_id=current_user.id,
+        session_id=session_id,
+    )
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    msg_crud.delete_messages_for_conversation(db, conversation_id)
+    deleted = convo_crud.delete_conversation(db, conversation_id, current_user.id, session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return

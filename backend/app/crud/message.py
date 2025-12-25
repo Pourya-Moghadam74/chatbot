@@ -20,3 +20,8 @@ def get_messages(db: Session, conversation_id: int):
         .order_by(Message.created_at)
         .all()
     )
+
+
+def delete_messages_for_conversation(db: Session, conversation_id: int):
+    db.query(Message).filter_by(conversation_id=conversation_id).delete()
+    db.commit()

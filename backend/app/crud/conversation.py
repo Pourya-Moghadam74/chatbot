@@ -47,3 +47,12 @@ def get_conversation(
         )
         .first()
     )
+
+
+def delete_conversation(db: Session, convo_id: int, user_id: int, session_id: str):
+    convo = get_conversation(db, convo_id, user_id, session_id)
+    if not convo:
+        return False
+    db.delete(convo)
+    db.commit()
+    return True

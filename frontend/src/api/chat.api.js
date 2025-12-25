@@ -10,6 +10,16 @@ export const getConversation = (conversationId, sessionId) =>
     params: { session_id: sessionId },
   });
 
+export const listConversations = (sessionId) =>
+  api.get('/conversations', {
+    params: sessionId ? { session_id: sessionId } : {},
+  });
+
+export const deleteConversation = (conversationId, sessionId) =>
+  api.delete(`/conversations/${conversationId}`, {
+    params: { session_id: sessionId },
+  });
+
 export const sendMessage = (conversationId, sessionId, content) =>
   api.post(
     `/conversations/${conversationId}/messages`,

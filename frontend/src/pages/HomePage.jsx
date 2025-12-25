@@ -1,6 +1,8 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { logout } from '../store/authSlice';
+import { deleteConversation, listConversations } from '../api/chat.api';
 
 const iconPaths = {
   spark: (
@@ -98,14 +100,59 @@ const promptIdeas = [
   'Summarize this meeting transcript into action items.',
 ];
 
+const createSessionId = () => crypto.randomUUID();
+
 export default function HomePage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const [conversations, setConversations] = useState([]);
+  const [convLoading, setConvLoading] = useState(false);
+  const [convDeletingId, setConvDeletingId] = useState(null);
+  const [ideas, setIdeas] = useState(promptIdeas);
 
   const handleSignOut = () => {
     dispatch(logout());
     navigate('/login');
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      try {
+        setConvLoading(true);
+        const res = await listConversations();
+        setConversations(res.data || []);
+      } catch (err) {
+        // keep silent if not available
+      } finally {
+        setConvLoading(false);
+      }
+    };
+    load();
+  }, [user]);
+
+  const handleDelete = async (id, session_id, e) => {
+    e.stopPropagation();
+    if (!session_id) return;
+    try {
+      setConvDeletingId(id);
+      await deleteConversation(id, session_id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      // ignore for now
+    } finally {
+      setConvDeletingId(null);
+    }
+  };
+
+  const shuffleIdeas = () => {
+    setIdeas((prev) => [...prev].sort(() => Math.random() - 0.5));
+  };
+
+  const useIdea = (idea) => {
+    const sid = createSessionId();
+    navigate(`/chat?session_id=${encodeURIComponent(sid)}&prompt=${encodeURIComponent(idea)}`);
   };
 
   return (
@@ -181,129 +228,182 @@ export default function HomePage() {
           </div>
         </header>
 
-        <section className="flex flex-col items-center gap-5 text-center">
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-300">
-            Inspired by the ChatGPT landing flow
-          </div>
-          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-            Ask anything. Explore ideas. Ship faster.
-          </h1>
-          <p className="max-w-2xl text-lg text-gray-300">
-            Start a conversation or pick from suggestions to see what this assistant can do.
-            It is designed to feel like the ChatGPT home you already know.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate(user ? '/chat' : '/login')}
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/10 transition hover:-translate-y-0.5"
-            >
-              Start a new chat
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(user ? '/chat' : '/login')}
-              className="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-gray-100 transition hover:border-white/25"
-            >
-              Browse suggestions
-            </button>
-          </div>
-        </section>
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <aside className="w-full lg:w-72 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur max-h-[75vh] overflow-y-auto">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">Your conversations</p>
+              {convLoading && <span className="text-xs text-gray-400">Loading…</span>}
+            </div>
+            {(!conversations || conversations.length === 0) && !convLoading && (
+              <p className="text-sm text-gray-400">No conversations yet.</p>
+            )}
+            <div className="space-y-2">
+              {conversations.map((c) => (
+                <div
+                  key={c.id}
+                  className="w-full text-left rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-gray-100 transition hover:border-white/25 hover:bg-white/[0.07]"
+                >
+                  <div className="flex items-start gap-2">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() =>
+                        navigate(`/chat/${c.id}?session_id=${encodeURIComponent(c.session_id || '')}`)
+                      }
+                    >
+                      <p className="font-semibold text-white truncate">
+                        {c.title || 'Untitled conversation'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Session {c.session_id?.slice(0, 8) || '—'}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(c.id, c.session_id, e)}
+                        className="rounded-full border border-white/20 px-2 py-1 text-xs text-gray-200 transition hover:border-red-400 hover:text-red-300"
+                        disabled={convDeletingId === c.id}
+                      >
+                        {convDeletingId === c.id ? '…' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {columns.map((col) => (
-            <div
-              key={col.title}
-              className={`flex flex-col gap-3 rounded-2xl border border-white/10 bg-gradient-to-b ${col.tone} p-5 backdrop-blur`}
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                  {col.icon}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{col.title}</p>
-                  <p className="text-xs text-gray-400">{col.description}</p>
-                </div>
+          <div className="flex-1 flex flex-col gap-14">
+            <section className="flex flex-col items-center gap-5 text-center">
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-300">
+                Inspired by the ChatGPT landing flow
               </div>
-              <div className="flex flex-col gap-2.5 pt-1">
-                {col.items.map((item) => (
+              <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+                Ask anything. Explore ideas. Ship faster.
+              </h1>
+              <p className="max-w-2xl text-lg text-gray-300">
+                Start a conversation or pick from suggestions to see what this assistant can do.
+                It is designed to feel like the ChatGPT home you already know.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(user ? '/chat' : '/login')}
+                  className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/10 transition hover:-translate-y-0.5"
+                >
+                  Start a new chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(user ? '/chat' : '/login')}
+                  className="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-gray-100 transition hover:border-white/25"
+                >
+                  Browse suggestions
+                </button>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {columns.map((col) => (
+                <div
+                  key={col.title}
+                  className={`flex flex-col gap-3 rounded-2xl border border-white/10 bg-gradient-to-b ${col.tone} p-5 backdrop-blur`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                      {col.icon}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{col.title}</p>
+                      <p className="text-xs text-gray-400">{col.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2.5 pt-1">
+                    {col.items.map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-gray-200"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
+
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Prompt ideas</p>
+                  <h2 className="text-2xl font-semibold text-white">Pick a starting point</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={shuffleIdeas}
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-white/35"
+                >
+                  Shuffle ideas
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {ideas.map((prompt) => (
                   <div
-                    key={item}
-                    className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-gray-200"
+                    key={prompt}
+                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-sm text-gray-100"
+                    onClick={() => useIdea(prompt)}
                   >
-                    {item}
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-transparent opacity-0 transition group-hover:opacity-100" />
+                    <p className="relative pr-8 leading-relaxed">{prompt}</p>
+                    <div className="relative mt-4 flex items-center justify-between text-xs text-emerald-200">
+                      <span>Use prompt</span>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4">
+                        <path
+                          d="M10 7l5 5-5 5"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          ))}
-        </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Prompt ideas</p>
-              <h2 className="text-2xl font-semibold text-white">Pick a starting point</h2>
-            </div>
-            <button
-              type="button"
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-white/35"
-            >
-              Shuffle ideas
-            </button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {promptIdeas.map((prompt) => (
-              <div
-                key={prompt}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-sm text-gray-100"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-transparent opacity-0 transition group-hover:opacity-100" />
-                <p className="relative pr-8 leading-relaxed">{prompt}</p>
-                <div className="relative mt-4 flex items-center justify-between text-xs text-emerald-200">
-                  <span>Use prompt</span>
-                  <svg viewBox="0 0 24 24" className="h-4 w-4">
-                    <path
-                      d="M10 7l5 5-5 5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6">
-            <label className="mb-2 block text-sm font-medium text-gray-200">Prompt</label>
-            <div className="group relative rounded-2xl border border-white/10 bg-[#0f1427] shadow-inner shadow-black/40 transition focus-within:border-emerald-400/40 focus-within:shadow-emerald-500/10">
-              <textarea
-                rows="3"
-                placeholder="Message ChatGPT..."
-                className="w-full resize-none rounded-2xl bg-transparent px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
-              />
-              <div className="pointer-events-none absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-emerald-500 text-black opacity-90 shadow-lg shadow-emerald-500/20">
-                <svg viewBox="0 0 24 24" className="h-4 w-4">
-                  <path
-                    d="M5 12h14M12 5l7 7-7 7"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+              <div className="mt-6">
+                <label className="mb-2 block text-sm font-medium text-gray-200">Prompt</label>
+                <div className="group relative rounded-2xl border border-white/10 bg-[#0f1427] shadow-inner shadow-black/40 transition focus-within:border-emerald-400/40 focus-within:shadow-emerald-500/10">
+                  <textarea
+                    rows="3"
+                    placeholder="Message ChatGPT..."
+                    className="w-full resize-none rounded-2xl bg-transparent px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
                   />
-                </svg>
+                  <div className="pointer-events-none absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-emerald-500 text-black opacity-90 shadow-lg shadow-emerald-500/20">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4">
+                      <path
+                        d="M5 12h14M12 5l7 7-7 7"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  Tip: give clear instructions or paste context to steer the conversation—just like ChatGPT.
+                </p>
               </div>
-            </div>
-            <p className="mt-2 text-xs text-gray-400">
-              Tip: give clear instructions or paste context to steer the conversation—just like ChatGPT.
-            </p>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -50,6 +50,12 @@ def add_user_message_and_reply(
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    if not convo.title:
+        convo.title = data.content[:60]
+        db.add(convo)
+        db.commit()
+        db.refresh(convo)
+
     history = msg_crud.get_messages(db, conversation_id)
     history_context = _build_history_context(history)
 
@@ -95,6 +101,12 @@ async def stream_user_message_and_reply(
     )
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not convo.title:
+        convo.title = data.content[:60]
+        db.add(convo)
+        db.commit()
+        db.refresh(convo)
 
     history = msg_crud.get_messages(db, conversation_id)
     history_context = _build_history_context(history)

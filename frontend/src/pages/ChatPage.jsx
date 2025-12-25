@@ -1,30 +1,56 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createConversation, getConversation, streamMessage } from '../api/chat.api';
 
-const ensureSessionId = () => {
-  const existing = localStorage.getItem('chat_session_id');
-  if (existing) return existing;
-  const fresh = crypto.randomUUID();
-  localStorage.setItem('chat_session_id', fresh);
-  return fresh;
-};
+const newSessionId = () => crypto.randomUUID();
 
 export default function ChatPage() {
-  const [sessionId] = useState(ensureSessionId);
-  const [conversationId, setConversationId] = useState(null);
+  const navigate = useNavigate();
+  const { conversationId: convoParam } = useParams();
+  const [searchParams] = useSearchParams();
+  const [sessionId, setSessionId] = useState(() => searchParams.get('session_id') || newSessionId());
+  const [conversationId, setConversationId] = useState(convoParam ? Number(convoParam) : null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const scrollRef = useRef(null);
+  const [pendingPrompt, setPendingPrompt] = useState(searchParams.get('prompt') || '');
+
+  // Sync state when query params or convo param change (for navigation from sidebar / prompt ideas)
+  useEffect(() => {
+    const sid = searchParams.get('session_id');
+    const prm = searchParams.get('prompt');
+    setSessionId(sid || newSessionId());
+    setPendingPrompt(prm || '');
+    setConversationId(convoParam ? Number(convoParam) : null);
+    setMessages([]);
+  }, [searchParams, convoParam]);
 
   const canSend = useMemo(
     () => input.trim().length > 0 && conversationId && !loading,
     [input, conversationId, loading]
   );
 
-  // Create a conversation on first load
   useEffect(() => {
+    // Existing conversation: fetch and hydrate
+    if (conversationId) {
+      const loadExisting = async () => {
+        try {
+          const res = await getConversation(conversationId, sessionId);
+          setMessages(res.data.messages || []);
+          if (res.data.session_id) {
+            setSessionId(res.data.session_id);
+          }
+        } catch (err) {
+          setError('Unable to load conversation');
+        }
+      };
+      loadExisting();
+      return;
+    }
+
+    // New conversation flow
     const bootstrap = async () => {
       try {
         const res = await createConversation(sessionId, null);
@@ -33,10 +59,12 @@ export default function ChatPage() {
         setError('Unable to create conversation');
       }
     };
+    setMessages([]);
+    setConversationId(null);
+    setError('');
     bootstrap();
-  }, [sessionId]);
+  }, [sessionId, conversationId]);
 
-  // Fetch existing messages if conversation already exists (fresh page reload)
   useEffect(() => {
     if (!conversationId) return;
     const load = async () => {
@@ -54,16 +82,18 @@ export default function ChatPage() {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!canSend) return;
+  const handleSend = async (overrideContent) => {
+    const contentToSend = overrideContent?.trim() || input.trim();
+    if (!contentToSend || !conversationId || loading) return;
     setLoading(true);
     setError('');
-    const content = input.trim();
-    setInput('');
+    if (!overrideContent) {
+      setInput('');
+    }
 
     setMessages((prev) => [
       ...prev,
-      { role: 'user', content },
+      { role: 'user', content: contentToSend },
       { role: 'assistant', content: '' },
     ]);
 
@@ -73,7 +103,7 @@ export default function ChatPage() {
       await streamMessage(
         conversationId,
         sessionId,
-        content,
+        contentToSend,
         (chunk) => {
           assistantText += chunk;
           setMessages((prev) => {
@@ -91,6 +121,109 @@ export default function ChatPage() {
     }
   };
 
+  useEffect(() => {
+    if (pendingPrompt && conversationId && !loading) {
+      // auto-send the pending prompt once we have a conversation
+      handleSend(pendingPrompt);
+      setPendingPrompt('');
+    }
+  }, [pendingPrompt, conversationId, loading]);
+
+  const handleNewChat = () => {
+    navigate('/chat');
+  };
+
+  const renderAssistantContent = (text) => {
+    if (!text) return '…';
+
+    const parts = [];
+    const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+
+    const renderInline = (str, key) => {
+      const nodes = [];
+      let i = 0;
+      const inlineRegex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+      let m;
+      while ((m = inlineRegex.exec(str)) !== null) {
+        if (m.index > i) {
+          nodes.push(<span key={`${key}-t-${m.index}`}>{str.slice(i, m.index)}</span>);
+        }
+        const token = m[0];
+        const content = token.replace(/^\*+\s?|\*+$/g, '').replace(/^\*|\*$/g, '');
+        if (token.startsWith('**')) {
+          nodes.push(<strong key={`${key}-b-${m.index}`}>{content}</strong>);
+        } else {
+          nodes.push(<em key={`${key}-i-${m.index}`}>{content}</em>);
+        }
+        i = m.index + token.length;
+      }
+      if (i < str.length) {
+        nodes.push(<span key={`${key}-end`}>{str.slice(i)}</span>);
+      }
+      return nodes;
+    };
+
+    const pushFormattedBlock = (raw, keyPrefix) => {
+      const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+      const listItems = [];
+      const otherLines = [];
+      lines.forEach((line) => {
+        if (/^[-*]\s+/.test(line)) {
+          listItems.push(line.replace(/^[-*]\s+/, ''));
+        } else {
+          otherLines.push(line);
+        }
+      });
+
+      if (listItems.length) {
+        parts.push(
+          <ul key={`${keyPrefix}-ul`} className="list-disc space-y-1 pl-5">
+            {listItems.map((item, idx) => (
+              <li key={`${keyPrefix}-li-${idx}`} className="whitespace-pre-wrap break-words">
+                {renderInline(item, `${keyPrefix}-li-${idx}`)}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+
+      if (otherLines.length) {
+        parts.push(
+          <p key={`${keyPrefix}-p`} className="whitespace-pre-wrap break-words">
+            {renderInline(otherLines.join('\n'), `${keyPrefix}-p`)}
+          </p>
+        );
+      }
+    };
+
+    while ((match = codeRegex.exec(text)) !== null) {
+      const [snippet, lang, code] = match;
+      if (match.index > lastIndex) {
+        pushFormattedBlock(text.slice(lastIndex, match.index), `t-${match.index}`);
+      }
+      parts.push(
+        <pre
+          key={`c-${match.index}`}
+          className="mt-2 overflow-x-auto rounded-xl bg-black/70 px-3 py-2 text-xs text-emerald-100"
+        >
+          <code>
+            {lang ? `${lang}\n` : ''}
+            {code.trim()}
+          </code>
+        </pre>
+      );
+      lastIndex = match.index + snippet.length;
+    }
+
+    if (lastIndex < text.length) {
+      pushFormattedBlock(text.slice(lastIndex), 't-end');
+    }
+
+    return parts;
+  };
+
   return (
     <div className="relative min-h-screen bg-[#0b1021] text-gray-100">
       <div className="pointer-events-none absolute inset-0">
@@ -104,9 +237,25 @@ export default function ChatPage() {
             <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Chat</p>
             <h1 className="text-lg font-semibold text-white">New conversation</h1>
           </div>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
-            Session {sessionId.slice(0, 8)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
+              Session {sessionId.slice(0, 8)}
+            </span>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-gray-100 transition hover:border-white/35"
+            >
+              New chat
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black transition hover:scale-[1.01]"
+            >
+              Home
+            </button>
+          </div>
         </header>
 
         <main className="mt-6 flex flex-1 flex-col gap-4">
@@ -127,10 +276,12 @@ export default function ChatPage() {
                   className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-emerald-500 text-black'
-                      : 'bg-white/10 text-gray-100 border border-white/10'
+                      : 'bg-white/10 text-gray-100 border border-white/10 space-y-2'
                   }`}
                 >
-                  {msg.content || (msg.role === 'assistant' ? '…' : '')}
+                  {msg.role === 'assistant'
+                    ? renderAssistantContent(msg.content)
+                    : msg.content}
                 </div>
               </div>
             ))}
