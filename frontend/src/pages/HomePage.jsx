@@ -149,6 +149,7 @@ export default function HomePage() {
                 </span>
                 <button
                   type="button"
+                  onClick={() => navigate('/chat')}
                   className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:scale-[1.01]"
                 >
                   New chat
@@ -194,12 +195,14 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
+              onClick={() => navigate(user ? '/chat' : '/login')}
               className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-emerald-500/10 transition hover:-translate-y-0.5"
             >
               Start a new chat
             </button>
             <button
               type="button"
+              onClick={() => navigate(user ? '/chat' : '/login')}
               className="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-gray-100 transition hover:border-white/25"
             >
               Browse suggestions

@@ -3,8 +3,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest
 from app.crud.user import get_user_by_email, create_user
-from app.core.security import verify_password, create_access_token
-from app.core.security import create_refresh_token as generate_refresh_token
+from app.core.security import (
+    verify_password,
+    create_access_token,
+    create_refresh_token as generate_refresh_token,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+)
 from app.crud.refresh_token import create_refresh_token, get_active_refresh_token, revoke_refresh_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,7 +45,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/refresh")
 def refresh_token(data: RefreshRequest, db: Session = Depends(get_db)):
-    old_rt = get_active_refresh_token(db, data.refresh_token)
+    old_rt = get_active_refresh_token(db, data.refresh_token, REFRESH_TOKEN_EXPIRE_DAYS)
 
     if not old_rt:
         raise HTTPException(status_code=401, detail="Invalid refresh token")

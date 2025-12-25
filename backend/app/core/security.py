@@ -1,13 +1,17 @@
 import hashlib
-from passlib.context import CryptContext
-from jose import jwt
-from datetime import datetime, timedelta
+import os
 import secrets
+from datetime import datetime, timedelta
+
+from jose import jwt
+from passlib.context import CryptContext
 
 
-SECRET_KEY = "CHANGE_ME_SUPER_SECRET"
+# Configurable secrets/timing via environment
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(48)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 day
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
 pwd_context = CryptContext(
@@ -15,8 +19,9 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
+
 def hash_password(password: str) -> str:
-    # Normalize password length before bcrypt
+    # Normalize password length before bcrypt to avoid password length truncation
     password_bytes = password.encode("utf-8")
     sha256 = hashlib.sha256(password_bytes).hexdigest()
     return pwd_context.hash(sha256)

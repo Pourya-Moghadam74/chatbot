@@ -17,6 +17,9 @@ passlib = {extras = ["bcrypt"], version = "*"}
 pydantic = {extras = ["email"], version = "*"}
 python-jose = {extras = ["cryptography"], version = "*"}
 sse-starlette = "*"
+bcrypt = "==3.2.2"
+google-genai = "*"
+groq = "*"
 
 [dev-packages]
 

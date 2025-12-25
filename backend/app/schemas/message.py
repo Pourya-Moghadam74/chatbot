@@ -2,8 +2,6 @@ from pydantic import BaseModel
 from datetime import datetime
 
 class MessageCreate(BaseModel):
-    conversation_id: int
-    role: str
     content: str
 
 class MessageOut(BaseModel):
@@ -15,3 +13,7 @@ class MessageOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class MessagePairOut(BaseModel):
+    user_message: MessageOut
+    assistant_message: MessageOut
