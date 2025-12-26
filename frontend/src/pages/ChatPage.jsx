@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createConversation, getConversation, streamMessage } from '../api/chat.api';
 
-const newSessionId = () => crypto.randomUUID();
+const newSessionId = () =>
+  crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -105,6 +106,10 @@ export default function ChatPage() {
   }, [messages]);
 
   const handleSend = async (overrideContent) => {
+    console.log("SEND CLICKED", {
+    loading,
+    input,
+    overrideContent})
     const contentToSend = overrideContent?.trim() || input.trim();
     if (!contentToSend || loading) return;
     setLoading(true);
