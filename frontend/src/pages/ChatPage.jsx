@@ -31,8 +31,8 @@ export default function ChatPage() {
   }, [searchParams, convoParam]);
 
   const canSend = useMemo(
-    () => input.trim().length > 0 && conversationId && !loading,
-    [input, conversationId, loading]
+    () => input.trim().length > 0 && !loading,
+    [input, loading]
   );
 
   const showToast = (message, type = 'info') => {
@@ -106,11 +106,37 @@ export default function ChatPage() {
 
   const handleSend = async (overrideContent) => {
     const contentToSend = overrideContent?.trim() || input.trim();
-    if (!contentToSend || !conversationId || loading) return;
+    if (!contentToSend || loading) return;
     setLoading(true);
     setError('');
     if (!overrideContent) {
       setInput('');
+    }
+
+    // Ensure a conversation exists before sending
+    let targetConversationId = conversationId;
+    let targetSessionId = sessionId;
+    if (!targetConversationId) {
+      try {
+        const res = await createConversation(sessionId, null);
+        targetSessionId = res.data?.session_id || sessionId;
+        targetConversationId = res.data?.id;
+        setSessionId(targetSessionId);
+        setConversationId(targetConversationId || null);
+        setError('');
+      } catch (err) {
+        setError('Unable to create conversation');
+        showToast('Unable to create conversation', 'error');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (!targetConversationId) {
+      setError('Unable to create conversation');
+      showToast('Unable to create conversation', 'error');
+      setLoading(false);
+      return;
     }
 
     setMessages((prev) => [
@@ -123,8 +149,8 @@ export default function ChatPage() {
 
     try {
       await streamMessage(
-        conversationId,
-        sessionId,
+        targetConversationId,
+        targetSessionId,
         contentToSend,
         (chunk) => {
           assistantText += chunk;
