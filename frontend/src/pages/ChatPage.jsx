@@ -16,14 +16,17 @@ export default function ChatPage() {
   const [error, setError] = useState('');
   const scrollRef = useRef(null);
   const [pendingPrompt, setPendingPrompt] = useState(searchParams.get('prompt') || '');
+  const [toast, setToast] = useState({ message: '', type: 'info' });
 
   // Sync state when query params or convo param change (for navigation from sidebar / prompt ideas)
   useEffect(() => {
     const sid = searchParams.get('session_id');
     const prm = searchParams.get('prompt');
-    setSessionId(sid || newSessionId());
+    setSessionId((prev) => sid || prev || newSessionId());
     setPendingPrompt(prm || '');
-    setConversationId(convoParam ? Number(convoParam) : null);
+    if (convoParam) {
+      setConversationId(Number(convoParam));
+    }
     setMessages([]);
   }, [searchParams, convoParam]);
 
@@ -32,9 +35,21 @@ export default function ChatPage() {
     [input, conversationId, loading]
   );
 
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
   useEffect(() => {
-    // Existing conversation: fetch and hydrate
-    if (conversationId) {
+    if (!toast.message) return;
+    const t = setTimeout(() => setToast({ message: '', type: 'info' }), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  useEffect(() => {
+    const isExistingRoute = Boolean(convoParam);
+
+    if (isExistingRoute) {
+      if (!conversationId) return;
       const loadExisting = async () => {
         try {
           const res = await getConversation(conversationId, sessionId);
@@ -42,22 +57,19 @@ export default function ChatPage() {
           if (res.data.session_id) {
             setSessionId(res.data.session_id);
           }
+          setError('');
         } catch (err) {
-          if (!convoParam) {
-            // For newly created conversations where session_id might mismatch, retry creation flow
-            setConversationId(null);
-            setError('');
-            return;
-          }
-          // If this was a freshly-created convo with a mismatched session, retry creation flow
           setError('Unable to load conversation');
+          showToast('Unable to load conversation', 'error');
         }
       };
       loadExisting();
       return;
     }
 
-    // New conversation flow
+    // New conversation flow: only create if we don't already have one
+    if (conversationId) return;
+
     const bootstrap = async () => {
       try {
         const res = await createConversation(sessionId, null);
@@ -67,13 +79,13 @@ export default function ChatPage() {
         setError('');
       } catch (err) {
         setError('Unable to create conversation');
+        showToast('Unable to create conversation', 'error');
       }
     };
     setMessages([]);
-    setConversationId(null);
     setError('');
     bootstrap();
-  }, [sessionId, conversationId]);
+  }, [sessionId, conversationId, convoParam]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -127,6 +139,7 @@ export default function ChatPage() {
       );
     } catch (err) {
       setError('Failed to stream response');
+      showToast('Failed to stream response', 'error');
       setLoading(false);
     }
   };
@@ -341,6 +354,18 @@ export default function ChatPage() {
           </div>
         </main>
       </div>
+
+      {toast.message && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 rounded-xl border px-4 py-3 text-sm shadow-xl ${
+            toast.type === 'error'
+              ? 'border-red-500/40 bg-red-500/15 text-red-100'
+              : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-50'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
