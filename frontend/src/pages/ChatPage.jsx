@@ -43,6 +43,13 @@ export default function ChatPage() {
             setSessionId(res.data.session_id);
           }
         } catch (err) {
+          if (!convoParam) {
+            // For newly created conversations where session_id might mismatch, retry creation flow
+            setConversationId(null);
+            setError('');
+            return;
+          }
+          // If this was a freshly-created convo with a mismatched session, retry creation flow
           setError('Unable to load conversation');
         }
       };
@@ -54,7 +61,10 @@ export default function ChatPage() {
     const bootstrap = async () => {
       try {
         const res = await createConversation(sessionId, null);
+        const newSid = res.data?.session_id || sessionId;
+        setSessionId(newSid);
         setConversationId(res.data.id);
+        setError('');
       } catch (err) {
         setError('Unable to create conversation');
       }
