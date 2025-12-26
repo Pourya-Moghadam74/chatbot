@@ -365,7 +365,7 @@ export default function ChatPage() {
               </p>
               <button
                 type="button"
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!canSend}
                 className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition disabled:opacity-50"
               >
