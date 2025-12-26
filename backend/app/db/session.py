@@ -35,5 +35,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-postgresql://chatbot_user:ny7PTBYqG0gXYr8qiLhud3bubnYSSGyV@dpg-d56traer433s73echq0g-a/chatbot_yu0i
