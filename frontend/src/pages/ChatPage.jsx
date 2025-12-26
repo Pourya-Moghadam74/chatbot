@@ -106,10 +106,6 @@ export default function ChatPage() {
   }, [messages]);
 
   const handleSend = async (overrideContent) => {
-    console.log("SEND CLICKED", {
-    loading,
-    input,
-    overrideContent})
     const contentToSend = overrideContent?.trim() || input.trim();
     if (!contentToSend || loading) return;
     setLoading(true);
@@ -355,6 +351,14 @@ export default function ChatPage() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();     // stop newline
+                  if (canSend) {
+                    handleSend();
+                  }
+                }
+              }}
               rows="3"
               placeholder="Ask anything..."
               className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-transparent px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-emerald-400/60 focus:outline-none"
